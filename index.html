@@ -77,6 +77,11 @@
             </div>
           </div>
           <ul id="goal-list" class="p-4 space-y-2"></ul>
+          <div id="goal-pagination" class="flex items-center justify-between px-4 pb-3 text-xs text-slate-500">
+            <button id="goal-prev" class="btn text-xs">Önceki</button>
+            <span id="goal-page-label"></span>
+            <button id="goal-next" class="btn text-xs">Sonraki</button>
+          </div>
         </div>
 
         <!-- Tip kartı -->
@@ -246,6 +251,42 @@
       </div>
     </div>
   </dialog>
+
+  <!-- Zincir modalı -->
+  <dialog id="modal-chain" class="modal">
+    <form method="dialog" class="modal-card">
+      <div class="p-4 border-b flex items-center justify-between">
+        <h3 id="chain-title" class="font-semibold text-sm">Zincir</h3>
+        <button value="cancel" class="btn text-xs">Kapat</button>
+      </div>
+
+      <div class="p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <button type="button" id="chain-prev" class="btn text-xs">◀</button>
+          <div id="chain-month-label" class="text-sm font-medium"></div>
+          <button type="button" id="chain-next" class="btn text-xs">▶</button>
+        </div>
+
+        <div class="grid grid-cols-7 text-center text-[11px] uppercase tracking-wide text-slate-400">
+          <div>Pzt</div>
+          <div>Sal</div>
+          <div>Çar</div>
+          <div>Per</div>
+          <div>Cum</div>
+          <div>Cmt</div>
+          <div>Paz</div>
+        </div>
+
+        <div id="chain-grid" class="mt-1 grid grid-cols-7 gap-1"></div>
+
+        <p class="text-[11px] text-slate-500">
+          Bir güne tıklayarak bu hedefi o gün için tamamlanmış işaretleyebilirsin.
+          Bugün için işaretlenen günler haftalık planında zincirini temsil eder.
+        </p>
+      </div>
+    </form>
+  </dialog>
+
 
   <script src="app.js" defer></script>
 </body>

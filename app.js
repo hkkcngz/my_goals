@@ -26,6 +26,12 @@ const DAY_NAMES = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
 
 const ROUTINES_PER_PAGE = 8;
 
+const GOALS_PER_PAGE = 6;
+let goalPage = 1;
+
+let currentChainGoalId = null;
+let chainMonthCursor = startOfDay(new Date());
+
 // ===== Storage =====
 const STORAGE_KEY = "personal-routine-app-v3";
 const seed = () => ({
@@ -47,13 +53,14 @@ const seed = () => ({
     },
   ],
   goals: [
-    { id: 1, title: "Her gün 20dk kitap", tags: ["Günlük"], done: false },
-    { id: 2, title: "Haftada 1 blog yazısı", tags: ["Haftalık"], done: false },
+    { id: 1, title: "Her gün 20dk kitap", tags: ["Günlük"], done: false, chain: [] },
+    { id: 2, title: "Haftada 1 blog yazısı", tags: ["Haftalık"], done: false, chain: [] },
     {
       id: 3,
       title: "Aylık 1 open-source proje",
       tags: ["Aylık"],
       done: false,
+      chain: []
     },
   ],
 });
@@ -102,14 +109,13 @@ function renderCalendar() {
         (isSelected
           ? "bg-blue-600 text-white border-blue-600"
           : isToday
-          ? "bg-blue-50 border-blue-200 text-blue-800"
-          : inMonth
-          ? "bg-white hover:bg-slate-50 border-slate-200"
-          : "bg-slate-50 text-slate-400 border-slate-200");
+            ? "bg-blue-50 border-blue-200 text-blue-800"
+            : inMonth
+              ? "bg-white hover:bg-slate-50 border-slate-200"
+              : "bg-slate-50 text-slate-400 border-slate-200");
       btn.title = hasItems ? "Bu günde rutin var" : "";
-      btn.innerHTML = `<span class="text-base font-semibold">${d.getDate()}</span>${
-        hasItems ? '<span class="dot"></span>' : ""
-      }`;
+      btn.innerHTML = `<span class="text-base font-semibold">${d.getDate()}</span>${hasItems ? '<span class="dot"></span>' : ""
+        }`;
       btn.addEventListener("click", () => {
         selectedDate = d;
         routinePage = 1;
@@ -157,9 +163,8 @@ function renderWeek() {
     const th = document.createElement("th");
     th.className =
       "border-b p-2 text-xs uppercase tracking-wide text-slate-500 text-center";
-    th.innerHTML = `${DAY_NAMES[idx]}<div class="text-[11px] text-slate-400">${d.getDate()}.${
-      d.getMonth() + 1
-    }</div>`;
+    th.innerHTML = `${DAY_NAMES[idx]}<div class="text-[11px] text-slate-400">${d.getDate()}.${d.getMonth() + 1
+      }</div>`;
     head.appendChild(th);
   });
 
@@ -184,9 +189,8 @@ function renderWeek() {
       const items = getRoutinesForDate(d).filter((r) => r.time === slot);
       const isSel = isSameDay(d, selectedDate);
       const td = document.createElement("td");
-      td.className = `align-top border-t p-2 min-w-[120px] ${
-        isSel ? "bg-blue-50" : "bg-white"
-      }`;
+      td.className = `align-top border-t p-2 min-w-[120px] ${isSel ? "bg-blue-50" : "bg-white"
+        }`;
 
       if (items.length) {
         const wrap = document.createElement("div");
@@ -226,10 +230,12 @@ function renderRoutines() {
   const emptyEl = $("#routine-empty");
   const pageLabel = $("#routine-page-label");
 
-  let list = [...state.routines];
+let list;
   if (routineScope === "day") {
-    const key = fmtDate(selectedDate);
-    list = list.filter((r) => r.date === key);
+    // Tekrar (daily/weekly) mantığını da kullanarak sadece seçili güne düşenleri getir
+    list = getRoutinesForDate(selectedDate);
+  } else {
+    list = [...state.routines]; // Tümü modunda ham liste
   }
 
   list.sort((a, b) => {
@@ -258,8 +264,8 @@ function renderRoutines() {
         <div class="flex-1">
           <div class="font-medium">${r.text}</div>
           <div class="mt-1 text-[11px] text-slate-400">${repeatLabel(
-            r.repeat
-          )}</div>
+        r.repeat
+      )}</div>
         </div>
         <button class="btn text-xs">Düzenle</button>
       `;
@@ -268,9 +274,8 @@ function renderRoutines() {
     });
   }
 
-  pageLabel.textContent = `Sayfa ${list.length ? routinePage : 0} / ${
-    list.length ? totalPages : 0
-  }`;
+  pageLabel.textContent = `Sayfa ${list.length ? routinePage : 0} / ${list.length ? totalPages : 0
+    }`;
 
   // prev/next aktifliği
   const prev = $("#routine-prev");
@@ -311,83 +316,228 @@ function closeAllGoalMenus() {
   $$(".goal-menu").forEach((m) => m.classList.add("hidden"));
 }
 
+function closeAllGoalMenus() {
+  $$(".goal-menu").forEach((m) => m.classList.add("hidden"));
+}
+
 function renderGoals() {
   const filter = $("#goal-filter").value || "Hepsi";
   const ul = $("#goal-list");
   ul.innerHTML = "";
 
-  state.goals
+  // filtre + sıralama
+  let filtered = state.goals
     .filter((g) => filter === "Hepsi" || (g.tags || []).includes(filter))
-    .sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1))
-    .forEach((g) => {
-      const li = document.createElement("li");
-      li.className =
-        "flex items-start gap-3 rounded-xl border p-3 text-sm goal-menu-wrapper";
-      li.innerHTML = `
-        <div class="flex-1">
-          <div class="font-medium ${
-            g.done ? "line-through text-slate-400" : ""
-          }">${g.title}</div>
-          <div class="mt-1 flex flex-wrap gap-1"></div>
+    .sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1));
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / GOALS_PER_PAGE));
+  if (goalPage > totalPages) goalPage = totalPages;
+
+  const startIdx = (goalPage - 1) * GOALS_PER_PAGE;
+  const pageItems = filtered.slice(startIdx, startIdx + GOALS_PER_PAGE);
+
+  pageItems.forEach((g) => {
+    if (!Array.isArray(g.chain)) g.chain = [];
+
+    const li = document.createElement("li");
+    li.className =
+      "flex items-start gap-3 rounded-xl border p-3 text-sm goal-menu-wrapper";
+
+    li.innerHTML = `
+      <div class="flex-1">
+        <div class="font-medium ${g.done ? "line-through text-slate-400" : ""}">
+          ${g.title}
         </div>
-        <div class="relative goal-menu-wrapper">
-          <button type="button" class="btn btn-icon goal-menu-btn">⋯</button>
-          <div class="goal-menu hidden absolute right-0 mt-2 w-32 rounded-xl border bg-white shadow-lg text-sm">
-            <button data-action="toggle" class="w-full text-left px-3 py-2 hover:bg-slate-50">
-              ${g.done ? "Tamamlanmadı" : "Tamamlandı"}
-            </button>
-            <button data-action="delete" class="w-full text-left px-3 py-2 text-red-600 hover:bg-red-50">
-              Sil
-            </button>
-          </div>
+        <div class="mt-1 flex flex-wrap gap-1"></div>
+      </div>
+      <div class="relative goal-menu-wrapper">
+        <button type="button" class="btn btn-icon goal-menu-btn">⋯</button>
+        <div class="goal-menu hidden absolute right-0 mt-2 w-40 rounded-xl border bg-white shadow-lg text-sm">
+          <button data-action="toggle" class="w-full text-left px-3 py-2 hover:bg-slate-50">
+            ${g.done ? "Tamamlanmadı" : "Tamamlandı"}
+          </button>
+          <button data-action="chain" class="w-full text-left px-3 py-2 hover:bg-slate-50">
+            Zincire Bak
+          </button>
+          <button data-action="delete" class="w-full text-left px-3 py-2 text-red-600 hover:bg-red-50">
+            Sil
+          </button>
         </div>
-      `;
+      </div>
+    `;
 
-      const chips = $("div.mt-1", li);
-      (g.tags || []).forEach((t) => {
-        const s = document.createElement("span");
-        s.className =
-          "text-xs px-2 py-0.5 rounded-full border bg-slate-50 text-slate-600";
-        s.textContent = t;
-        chips.appendChild(s);
-      });
-      if (g.deadline) {
-        const s = document.createElement("span");
-        s.className =
-          "text-xs px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700";
-        s.textContent =
-          "Son: " + new Date(g.deadline).toLocaleDateString("tr-TR");
-        chips.appendChild(s);
-      }
-
-      const menuBtn = $(".goal-menu-btn", li);
-      const menu = $(".goal-menu", li);
-
-      menuBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const isHidden = menu.classList.contains("hidden");
-        closeAllGoalMenus();
-        if (isHidden) menu.classList.remove("hidden");
-      });
-
-      $$("button", menu).forEach((btn) => {
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const action = btn.dataset.action;
-          if (action === "toggle") {
-            g.done = !g.done;
-          } else if (action === "delete") {
-            state.goals = state.goals.filter((x) => x.id !== g.id);
-          }
-          save();
-          closeAllGoalMenus();
-          renderGoals();
-        });
-      });
-
-      ul.appendChild(li);
+    // etiket chip'leri
+    const chips = $("div.mt-1", li);
+    (g.tags || []).forEach((t) => {
+      const s = document.createElement("span");
+      s.className =
+        "text-xs px-2 py-0.5 rounded-full border bg-slate-50 text-slate-600";
+      s.textContent = t;
+      chips.appendChild(s);
     });
+    if (g.deadline) {
+      const s = document.createElement("span");
+      s.className =
+        "text-xs px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700";
+      s.textContent =
+        "Son: " + new Date(g.deadline).toLocaleDateString("tr-TR");
+      chips.appendChild(s);
+    }
+
+    // menü açma / tıklama
+    const menuBtn = $(".goal-menu-btn", li);
+    const menu = $(".goal-menu", li);
+
+    menuBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isHidden = menu.classList.contains("hidden");
+      closeAllGoalMenus();
+      if (isHidden) menu.classList.remove("hidden");
+    });
+
+    $$("button", menu).forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const action = btn.dataset.action;
+        if (action === "toggle") {
+          g.done = !g.done;
+          // Tamamlandı ise bugün zincire ekle
+          if (g.done) {
+            const todayStr = fmtDate(new Date());
+            if (!g.chain.includes(todayStr)) g.chain.push(todayStr);
+          }
+        } else if (action === "delete") {
+          if (!confirm("Bu hedef silinsin mi?")) return;
+          state.goals = state.goals.filter((x) => x.id !== g.id);
+        } else if (action === "chain") {
+          openChainModal(g);
+          return; // zincir modalı açıldı, renderGoals sonra
+        }
+        save();
+        closeAllGoalMenus();
+        renderGoals();
+      });
+    });
+
+    ul.appendChild(li);
+  });
+
+  // Pagination label + buton durumu
+  const label = $("#goal-page-label");
+  const prev = $("#goal-prev");
+  const next = $("#goal-next");
+
+  if (!filtered.length) {
+    label.textContent = "Sayfa 0 / 0";
+    prev.disabled = next.disabled = true;
+    prev.classList.add("opacity-50", "pointer-events-none");
+    next.classList.add("opacity-50", "pointer-events-none");
+  } else {
+    label.textContent = `Sayfa ${goalPage} / ${totalPages}`;
+
+    prev.disabled = goalPage <= 1;
+    next.disabled = goalPage >= totalPages;
+
+    prev.classList.toggle("opacity-50", prev.disabled);
+    prev.classList.toggle("pointer-events-none", prev.disabled);
+    next.classList.toggle("opacity-50", next.disabled);
+    next.classList.toggle("pointer-events-none", next.disabled);
+  }
 }
+
+function openChainModal(goal) {
+  currentChainGoalId = goal.id;
+  if (!Array.isArray(goal.chain)) goal.chain = [];
+  chainMonthCursor = startOfDay(new Date());
+
+  $("#chain-title").textContent = "Zincir: " + goal.title;
+  renderChainCalendar();
+  $("#modal-chain").showModal();
+}
+
+function renderChainCalendar() {
+  const goal = state.goals.find((g) => g.id === currentChainGoalId);
+  if (!goal) return;
+  if (!Array.isArray(goal.chain)) goal.chain = [];
+
+  const monthLabel = $("#chain-month-label");
+  const grid = $("#chain-grid");
+  monthLabel.textContent = chainMonthCursor.toLocaleDateString("tr-TR", {
+    month: "long",
+    year: "numeric",
+  }).toUpperCase();
+
+  grid.innerHTML = "";
+
+  const first = new Date(
+    chainMonthCursor.getFullYear(),
+    chainMonthCursor.getMonth(),
+    1
+  );
+  const last = new Date(
+    chainMonthCursor.getFullYear(),
+    chainMonthCursor.getMonth() + 1,
+    0
+  );
+  const start = startOfWeekMonday(first);
+  const end = addDays(startOfWeekMonday(addDays(last, 6)), 6);
+
+  const chainSet = new Set(goal.chain);
+
+  for (let d = start; d <= end; d = addDays(d, 1)) {
+    const dateStr = fmtDate(d);
+    const inMonth = d.getMonth() === chainMonthCursor.getMonth();
+    const isToday = isSameDay(d, new Date());
+    const isMarked = chainSet.has(dateStr);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = d.getDate();
+    let cls =
+      "w-8 h-8 sm:w-9 sm:h-9 rounded-lg border text-xs flex items-center justify-center transition ";
+
+    if (!inMonth) cls += "opacity-30 ";
+    if (isMarked) cls += "bg-blue-600 text-white border-blue-600 ";
+    else cls += "bg-white ";
+
+    if (isToday) cls += "ring-2 ring-blue-400 ";
+
+    btn.className = cls.trim();
+
+    btn.addEventListener("click", () => {
+      const goalRef = state.goals.find((g) => g.id === currentChainGoalId);
+      if (!goalRef) return;
+      goalRef.chain = goalRef.chain || [];
+      const idx = goalRef.chain.indexOf(dateStr);
+      if (idx === -1) goalRef.chain.push(dateStr);
+      else goalRef.chain.splice(idx, 1);
+      save();
+      renderChainCalendar();
+    });
+
+    grid.appendChild(btn);
+  }
+}
+
+$("#chain-prev").addEventListener("click", () => {
+  chainMonthCursor = new Date(
+    chainMonthCursor.getFullYear(),
+    chainMonthCursor.getMonth() - 1,
+    1
+  );
+  renderChainCalendar();
+});
+
+$("#chain-next").addEventListener("click", () => {
+  chainMonthCursor = new Date(
+    chainMonthCursor.getFullYear(),
+    chainMonthCursor.getMonth() + 1,
+    1
+  );
+  renderChainCalendar();
+});
+
+
 
 document.addEventListener("click", (e) => {
   if (!e.target.closest(".goal-menu-wrapper")) {
@@ -454,12 +604,12 @@ function openRoutineModal(r) {
   editingRoutine = r?.id
     ? r
     : {
-        id: null,
-        date: fmtDate(selectedDate),
-        time: "09:00",
-        text: "",
-        repeat: "none",
-      };
+      id: null,
+      date: fmtDate(selectedDate),
+      time: "09:00",
+      text: "",
+      repeat: "none",
+    };
   mDate.value = editingRoutine.date;
   mTime.value = editingRoutine.time;
   mText.value = editingRoutine.text || "";
@@ -732,7 +882,7 @@ let tipTimer = null;
 
 function initTipCard() {
   const tipCard = document.getElementById("tip-card");
-  const tipEl   = document.getElementById("tip-message");
+  const tipEl = document.getElementById("tip-message");
   if (!tipCard || !tipEl) return;
 
   // Başlangıç mesajı
