@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="tr">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kişisel Rutin Programı</title>
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="bg-slate-50 text-slate-800" style="font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-10 bg-white/70 backdrop-blur border-b border-slate-200">
+    <div class="mx-auto max-w-7xl px-4 py-4 flex items-center justify-between">
+      <h1 class="text-2xl font-bold tracking-tight">Kişisel Rutin Programı</h1>
+
+      <div class="flex items-center gap-2">
+        <button id="btn-settings" class="btn">Ayarlar</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="mx-auto max-w-7xl p-4 space-y-4">
+
+    <!-- Üst: Takvim + Sağ kolon -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+      <!-- Sol: Takvim -->
+      <section class="lg:col-span-2">
+        <div class="rounded-2xl border bg-white shadow-sm overflow-hidden">
+          <div class="flex items-center justify-between p-4 border-b">
+            <div class="flex items-center gap-2">
+              <button id="cal-prev" class="btn" aria-label="Önceki Ay">◀</button>
+              <button id="cal-today" class="btn" aria-label="Bugün">Bugün</button>
+              <button id="cal-next" class="btn" aria-label="Sonraki Ay">▶</button>
+            </div>
+            <h2 id="cal-title" class="text-lg font-semibold"></h2>
+            <div class="text-sm opacity-70 text-right">
+              Takvimden tarih seç<br>
+              Haftalık tablo ve rutinler güncellensin
+            </div>
+          </div>
+
+          <div class="grid grid-cols-7 text-center text-xs uppercase tracking-wide text-slate-500 px-4 pt-3">
+            <div>Pzt</div>
+            <div>Sal</div>
+            <div>Çar</div>
+            <div>Per</div>
+            <div>Cum</div>
+            <div>Cmt</div>
+            <div>Paz</div>
+          </div>
+          <div id="cal-grid" class="px-3 pb-4 space-y-1"></div>
+        </div>
+      </section>
+
+      <!-- Sağ: Hedefler + İpucu + Rutinler -->
+      <aside class="space-y-4">
+
+        <!-- Goal board -->
+        <div class="rounded-2xl border bg-white shadow-sm">
+          <div class="flex items-center justify-between p-4 border-b">
+            <h3 class="font-semibold">Hedef Tahtası</h3>
+            <div class="flex items-center gap-2">
+              <select id="goal-filter" class="border rounded-xl px-2 py-1 text-sm"></select>
+              <button id="btn-add-goal" class="btn">+ Ekle (G)</button>
+            </div>
+          </div>
+          <ul id="goal-list" class="p-4 space-y-2"></ul>
+        </div>
+
+        <!-- Tip kartı -->
+        <div id="tip-card"
+          class="rounded-2xl border bg-gradient-to-br from-blue-600 to-indigo-600 text-white p-4 shadow-sm cursor-pointer select-none">
+          <div class="text-sm opacity-80 flex items-center justify-between">
+            <span>İpucu</span>
+            <span class="text-[11px] opacity-80">(Tıkla → yeni mesaj)</span>
+          </div>
+          <div id="tip-message" class="text-lg font-semibold mt-1">
+            Rutinlerini küçük parçalara böl, haftalık tabloya serpiştir. Küçük kazanımlar büyük ivme yaratır.
+          </div>
+        </div>
+
+
+        <!-- Rutin listesi -->
+        <div class="rounded-2xl border bg-white shadow-sm p-4">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <div>
+              <h3 class="font-semibold">Rutinler</h3>
+              <p id="routine-info" class="text-xs text-slate-500"></p>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="routine-scope" class="border rounded-xl px-2 py-1 text-xs">
+                <option value="day">Seçili Gün</option>
+                <option value="all">Tümü</option>
+              </select>
+              <button id="btn-add-routine" class="btn">+ Rutin Ekle (N)</button>
+            </div>
+          </div>
+
+          <ul id="routine-list" class="space-y-2 max-h-80 overflow-auto"></ul>
+          <p id="routine-empty" class="text-slate-500 text-sm hidden">Rutin bulunamadı.</p>
+
+          <div id="routine-pagination" class="flex items-center justify-between mt-3 text-xs text-slate-500">
+            <button id="routine-prev" class="btn text-xs">Önceki</button>
+            <span id="routine-page-label" class="mx-2"></span>
+            <button id="routine-next" class="btn text-xs">Sonraki</button>
+          </div>
+        </div>
+
+      </aside>
+    </section>
+
+    <!-- Alt: Haftalık program (full width) -->
+    <section>
+      <div class="rounded-2xl border bg-white shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b flex items-center justify-between">
+          <h3 class="font-semibold">Haftalık Program</h3>
+          <div id="week-range" class="text-sm text-slate-500"></div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full border-separate" style="border-spacing:0">
+            <thead>
+              <tr id="week-head"></tr>
+            </thead>
+            <tbody id="week-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ROUTINE MODAL -->
+  <dialog id="modal-routine" class="modal">
+    <form method="dialog" class="modal-card">
+      <div class="p-4 border-b font-semibold">Rutin Ekle / Düzenle</div>
+      <div class="p-4 space-y-3">
+        <label class="block text-sm">Tarih
+          <input id="m-date" type="date" class="mt-1 w-full border rounded-xl px-3 py-2">
+        </label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block text-sm">Saat
+            <select id="m-time" class="mt-1 w-full border rounded-xl px-3 py-2"></select>
+          </label>
+          <label class="block text-sm">Tekrar
+            <select id="m-repeat" class="mt-1 w-full border rounded-xl px-3 py-2">
+              <option value="none">Yok</option>
+              <option value="daily">Günlük</option>
+              <option value="weekly">Haftalık</option>
+            </select>
+          </label>
+        </div>
+        <label class="block text-sm">Açıklama
+          <input id="m-text" class="mt-1 w-full border rounded-xl px-3 py-2" placeholder="Örn. 20dk okuma">
+        </label>
+        <label class="block text-sm">Hatırlatma (tarih & saat – opsiyonel)
+          <input id="m-reminder" type="datetime-local" class="mt-1 w-full border rounded-xl px-3 py-2">
+        </label>
+      </div>
+      <div class="p-4 border-t flex items-center justify-between gap-2">
+        <button value="cancel" class="btn">Vazgeç</button>
+        <div class="flex items-center gap-2">
+          <button id="m-delete" type="button" class="btn danger hidden">Sil</button>
+          <button id="m-save" type="button" class="btn primary">Kaydet</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- GOAL MODAL -->
+  <dialog id="modal-goal" class="modal">
+    <form method="dialog" class="modal-card">
+      <div class="p-4 border-b font-semibold">Yeni Hedef</div>
+      <div class="p-4 space-y-3">
+        <label class="block text-sm">Başlık
+          <input id="g-title" class="mt-1 w-full border rounded-xl px-3 py-2" placeholder="Örn. Haftada 1 blog">
+        </label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block text-sm">Etiket(ler)
+            <select id="g-tags" multiple class="mt-1 w-full border rounded-xl px-3 py-2 h-28"></select>
+          </label>
+          <label class="block text-sm">Son Tarih (ops.)
+            <input id="g-deadline" type="date" class="mt-1 w-full border rounded-xl px-3 py-2">
+          </label>
+        </div>
+      </div>
+      <div class="p-4 border-t flex items-center justify-end gap-2">
+        <button value="cancel" class="btn">Vazgeç</button>
+        <button id="g-save" type="button" class="btn primary">Kaydet</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- SETTINGS MODAL -->
+  <dialog id="modal-settings" class="modal">
+    <div class="modal-card">
+      <div class="p-4 border-b font-semibold flex items-center justify-between">
+        <span>Ayarlar</span>
+        <button id="settings-close" type="button" class="btn">Kapat</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <div id="today-chip" class="mt-2 inline-flex px-2 py-1 rounded-full bg-slate-100 border text-sm"></div>
+        <div class="space-y-2">
+          <div class="text-sm font-medium">Veri</div>
+          <div class="flex flex-wrap gap-2">
+            <button id="btn-import" type="button" class="btn">İçe Aktar</button>
+            <button id="btn-export" type="button" class="btn">Dışa Aktar</button>
+            <input id="file-import" type="file" accept="application/json" class="hidden">
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <div class="text-sm font-medium">Hedefler</div>
+          <button id="btn-open-categories" type="button" class="btn primary">Hedef Kategorileri</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- CATEGORY MODAL -->
+  <dialog id="modal-categories" class="modal">
+    <div class="modal-card">
+      <div class="p-4 border-b font-semibold flex items-center justify-between">
+        <span>Hedef Kategorileri</span>
+        <button id="cat-close" type="button" class="btn">Kapat</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <div class="flex gap-2">
+          <input id="cat-new-input" class="flex-1 border rounded-xl px-3 py-2 text-sm" placeholder="Yeni kategori adı">
+          <button id="cat-add" type="button" class="btn primary text-sm">Ekle</button>
+        </div>
+        <ul id="cat-list" class="space-y-2 text-sm"></ul>
+        <p class="text-xs text-slate-500">
+          Not: Bir kategoriyi silmek mevcut hedeflerin etiketlerini otomatik silmez; sadece yeni seçimlerde görünmez.
+        </p>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="app.js" defer></script>
+</body>
+
+</html>
